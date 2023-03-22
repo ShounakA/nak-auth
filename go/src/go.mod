@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/go-sql-driver/mysql v1.7.0
+	github.com/kisielk/sqlstruct v0.0.0-20210630145711-dae28ed37023
 	go.uber.org/fx v1.19.2
 )
 
@@ -38,5 +39,6 @@ require (
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/mysql v1.4.7
 	gorm.io/gorm v1.24.6 // indirect
 )
