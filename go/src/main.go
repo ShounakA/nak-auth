@@ -8,11 +8,12 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )
 
-func NewHTTPServer(lc fx.Lifecycle, mux *http.ServeMux) *http.Server {
+func NewHTTPServer(lc fx.Lifecycle, mux *mux.Router) *http.Server {
 	srv := &http.Server{Addr: ":8080", Handler: mux}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -33,8 +34,8 @@ func NewHTTPServer(lc fx.Lifecycle, mux *http.ServeMux) *http.Server {
 
 // NewServeMux builds a ServeMux that will route requests
 // to the given EchoHandler.
-func NewServeMux(routes []controllers.ApiHandle) *http.ServeMux {
-	mux := http.NewServeMux()
+func NewServeMux(routes []controllers.ApiHandle) *mux.Router {
+	mux := mux.NewRouter()
 	for _, route := range routes {
 		mux.HandleFunc(route.Path(), route.WriteResponse)
 	}
@@ -53,7 +54,8 @@ func AsApiHandle(f any) any {
 
 func main() {
 	fx.New(
-		fx.Provide(NewHTTPServer,
+		fx.Provide(
+			NewHTTPServer,
 			db.NewPScaleClient,
 			fx.Annotate(
 				NewServeMux,
@@ -61,6 +63,8 @@ func main() {
 			),
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
+			AsApiHandle(controllers.NewUserController),
+			AsApiHandle(controllers.NewUserByIdController),
 		),
 		fx.Invoke(func(*http.Server, *gorm.DB) {}),
 	).Run()

@@ -1,7 +1,9 @@
 package db
 
 import (
+	"context"
 	"log"
+	"nak-auth/controllers"
 	"os"
 
 	"go.uber.org/fx"
@@ -16,5 +18,11 @@ func NewPScaleClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	if err != nil {
 		log.Fatalf("failed to connect: %v", err)
 	}
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			db.AutoMigrate(&controllers.User{})
+			return nil
+		},
+	})
 	return db, err
 }
