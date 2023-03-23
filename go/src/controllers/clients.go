@@ -5,44 +5,46 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
-type UserController struct {
+type ClientController struct {
 	db *gorm.DB
 }
 
-type User struct {
-	ID     		int    		`json:"id" sql:"id"`
-	Name   		string 		`json:"name" sql:"name"`
+type Client struct {
+	ID   		string 		`json:"name" sql:"name" gorm:"primaryKey"`
 	Secret 		string 		`json:"secret" sql:"secret"`
-	//AccessToken []string 	`json:"access_tokens" sql:"access_tokens"`  
+//	AccessToken []string 	`json:"access_tokens" sql:"access_tokens"`  
 }
 
-func NewUserController(db *gorm.DB) *UserController {
-	return &UserController{db: db}
+func (Client) CreateTable() string {
+	return "clients"
 }
 
-func (*UserController) Path() string {
-	return "/users"
+func NewClientController(db *gorm.DB) *ClientController {
+	return &ClientController{db: db}
 }
 
-func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
+func (*ClientController) Path() string {
+	return "/clients"
+}
+
+func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		var users []User
-		result := c.db.Find(&users)
+		var clients []Client
+		result := c.db.Find(&clients)
 		if result.Error != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(users)
+		json.NewEncoder(w).Encode(clients)
 		return
 	case "POST":
-		var usrBody User
+		var usrBody Client
 		err := json.NewDecoder(r.Body).Decode(&usrBody)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -53,15 +55,15 @@ func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 		h := sha256.New()
 		h.Write([]byte(usrBody.Secret))
 		hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-		newUser := User{
-			Name:   usrBody.Name,
+		newClient := Client{
+			ID:   usrBody.ID,
 			Secret: hashSecret,
 		}
 
 		// Write to the pscale
-		result := c.db.Create(&newUser)
+		result := c.db.Create(&newClient)
 		if result.Error != nil {
-			http.Error(w, "internal server error: failed to create user", http.StatusInternalServerError)
+			http.Error(w, "internal server error: failed to create client", http.StatusInternalServerError)
 			return
 		}
 
@@ -73,37 +75,32 @@ func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type UserByIdController struct {
+type ClientByIdController struct {
 	db *gorm.DB
 }
 
-func NewUserByIdController(db *gorm.DB) *UserByIdController {
-	return &UserByIdController{db: db}
+func NewClientByIdController(db *gorm.DB) *ClientByIdController {
+	return &ClientByIdController{db: db}
 }
 
-func (*UserByIdController) Path() string {
-	return "/users/{id}"
+func (*ClientByIdController) Path() string {
+	return "/clients/{id}"
 }
 
-func (c *UserByIdController) WriteResponse(w http.ResponseWriter, r *http.Request) {
+func (c *ClientByIdController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "GET":
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if ok {
-			marks, err := strconv.Atoi(id)
-			if err != nil {
-				http.Error(w, "bad request: invalid ID provided", http.StatusBadRequest)
-				return
-			}
-			var user User
-			result := c.db.First(&user, User{ID: marks})
+			var client Client
+			result := c.db.First(&client, Client{ID: id})
 			if result.Error != nil {
 				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 				return
 			}
-			json.NewEncoder(w).Encode(user)
+			json.NewEncoder(w).Encode(client)
 		} else {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -113,13 +110,8 @@ func (c *UserByIdController) WriteResponse(w http.ResponseWriter, r *http.Reques
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if ok {
-			marks, err := strconv.Atoi(id)
-			if err != nil {
-				http.Error(w, "bad request: invalid ID provided", http.StatusBadRequest)
-				return
-			}
-			var user User
-			result := c.db.Delete(&user, User{ID: marks})
+			var client Client
+			result := c.db.Delete(&client, Client{ID: id})
 			if result.Error != nil {
 				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
 				return

@@ -20,7 +20,7 @@ func NewPScaleClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			db.AutoMigrate(&controllers.User{})
+			//db.AutoMigrate(&controllers.Client{})
 			return nil
 		},
 	})

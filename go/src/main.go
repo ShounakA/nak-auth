@@ -65,6 +65,9 @@ func main() {
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
 			AsApiHandle(controllers.NewUserByIdController),
+			AsApiHandle(controllers.NewClientController),
+			AsApiHandle(controllers.NewClientByIdController),
+
 		),
 		fx.Invoke(func(*http.Server, *gorm.DB) {}),
 	).Run()
