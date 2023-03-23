@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"log"
-	"nak-auth/controllers"
 	"os"
 
 	"go.uber.org/fx"
