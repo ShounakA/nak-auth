@@ -15,9 +15,10 @@ type ClientController struct {
 }
 
 type Client struct {
-	ID   		string 		`json:"name" sql:"name" gorm:"primaryKey"`
+	ID   		string 		`json:"id" sql:"id" gorm:"primaryKey"`
 	Secret 		string 		`json:"secret" sql:"secret"`
-//	AccessToken []string 	`json:"access_tokens" sql:"access_tokens"`  
+	GrantType 	string 		`json:"grant_type" sql:"grant_type"`
+	RedirectURI string 		`json:"redirect_uri" sql:"redirect_uri"`
 }
 
 func (Client) CreateTable() string {
@@ -58,6 +59,8 @@ func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request)
 		newClient := Client{
 			ID:   usrBody.ID,
 			Secret: hashSecret,
+			RedirectURI: usrBody.RedirectURI,
+			GrantType: usrBody.GrantType,
 		}
 
 		// Write to the pscale

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"nak-auth/controllers"
 
 	"go.uber.org/fx"
 	"gorm.io/driver/mysql"
