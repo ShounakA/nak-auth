@@ -3,8 +3,8 @@ package db
 import (
 	"context"
 	"log"
+	"nak-auth/services"
 	"os"
-	"nak-auth/controllers"
 
 	"go.uber.org/fx"
 	"gorm.io/driver/mysql"
@@ -20,7 +20,7 @@ func NewPScaleClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			//db.AutoMigrate(&controllers.Client{})
+			db.AutoMigrate(&services.Client{})
 			return nil
 		},
 	})

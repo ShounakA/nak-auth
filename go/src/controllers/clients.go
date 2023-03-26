@@ -1,32 +1,19 @@
 package controllers
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
+	srv "nak-auth/services"
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"gorm.io/gorm"
 )
 
 type ClientController struct {
-	db *gorm.DB
+	cs srv.IClientService
 }
 
-type Client struct {
-	ID   		string 		`json:"id" sql:"id" gorm:"primaryKey"`
-	Secret 		string 		`json:"secret" sql:"secret"`
-	GrantType 	string 		`json:"grant_type" sql:"grant_type"`
-	RedirectURI string 		`json:"redirect_uri" sql:"redirect_uri"`
-}
-
-func (Client) CreateTable() string {
-	return "clients"
-}
-
-func NewClientController(db *gorm.DB) *ClientController {
-	return &ClientController{db: db}
+func NewClientController(clientService srv.IClientService) *ClientController {
+	return &ClientController{cs: clientService}
 }
 
 func (*ClientController) Path() string {
@@ -36,41 +23,28 @@ func (*ClientController) Path() string {
 func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		var clients []Client
-		result := c.db.Find(&clients)
-		if result.Error != nil {
-			http.Error(w, "internal server error", http.StatusInternalServerError)
+		clients, dbErr := c.cs.GetAll()
+		if dbErr != nil {
+			http.Error(w, dbErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(clients)
+		client_json := srv.ListOfClientsToListOfClientJson(clients)
+		json.NewEncoder(w).Encode(client_json)
 		return
 	case "POST":
-		var usrBody Client
+		var usrBody srv.ClientJson
 		err := json.NewDecoder(r.Body).Decode(&usrBody)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		// Hash the password
-		h := sha256.New()
-		h.Write([]byte(usrBody.Secret))
-		hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-		newClient := Client{
-			ID:   usrBody.ID,
-			Secret: hashSecret,
-			RedirectURI: usrBody.RedirectURI,
-			GrantType: usrBody.GrantType,
-		}
-
-		// Write to the pscale
-		result := c.db.Create(&newClient)
-		if result.Error != nil {
-			http.Error(w, "internal server error: failed to create client", http.StatusInternalServerError)
+		//Create the user
+		err = c.cs.Create(usrBody)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// Respond with created
 		json.NewEncoder(w).Encode("Created")
 		return
 	default:
@@ -79,11 +53,11 @@ func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request)
 }
 
 type ClientByIdController struct {
-	db *gorm.DB
+	cs srv.IClientService
 }
 
-func NewClientByIdController(db *gorm.DB) *ClientByIdController {
-	return &ClientByIdController{db: db}
+func NewClientByIdController(cs srv.IClientService) *ClientByIdController {
+	return &ClientByIdController{cs: cs}
 }
 
 func (*ClientByIdController) Path() string {
@@ -97,13 +71,13 @@ func (c *ClientByIdController) WriteResponse(w http.ResponseWriter, r *http.Requ
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if ok {
-			var client Client
-			result := c.db.First(&client, Client{ID: id})
-			if result.Error != nil {
-				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			client, err := c.cs.GetByID(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			json.NewEncoder(w).Encode(client)
+			client_json := client.From()
+			json.NewEncoder(w).Encode(client_json)
 		} else {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -113,10 +87,9 @@ func (c *ClientByIdController) WriteResponse(w http.ResponseWriter, r *http.Requ
 		vars := mux.Vars(r)
 		id, ok := vars["id"]
 		if ok {
-			var client Client
-			result := c.db.Delete(&client, Client{ID: id})
-			if result.Error != nil {
-				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			err := c.cs.Delete(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			json.NewEncoder(w).Encode("Deleted")

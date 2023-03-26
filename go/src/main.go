@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"nak-auth/controllers"
 	"nak-auth/db"
+	"nak-auth/services"
 	"net"
 	"net/http"
 
@@ -32,8 +33,6 @@ func NewHTTPServer(lc fx.Lifecycle, mux *mux.Router) *http.Server {
 	return srv
 }
 
-// NewServeMux builds a ServeMux that will route requests
-// to the given EchoHandler.
 func NewServeMux(routes []controllers.ApiHandle) *mux.Router {
 	mux := mux.NewRouter()
 	for _, route := range routes {
@@ -42,8 +41,6 @@ func NewServeMux(routes []controllers.ApiHandle) *mux.Router {
 	return mux
 }
 
-// AsRoute annotates the given constructor to state that
-// it provides a route to the "routes" group.
 func AsApiHandle(f any) any {
 	return fx.Annotate(
 		f,
@@ -61,14 +58,17 @@ func main() {
 				NewServeMux,
 				fx.ParamTags(`group:"routes"`),
 			),
+			fx.Annotate(
+				services.NewClientService,
+				fx.As(new(services.IClientService)),
+			),
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
 			AsApiHandle(controllers.NewUserByIdController),
 			AsApiHandle(controllers.NewClientController),
 			AsApiHandle(controllers.NewClientByIdController),
-
 		),
-		fx.Invoke(func(*http.Server, *gorm.DB) {}),
+		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService) {}),
 	).Run()
 }
