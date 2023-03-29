@@ -1,29 +1,20 @@
 package controllers
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
+	svc "nak-auth/services"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"gorm.io/gorm"
 )
 
 type UserController struct {
-	db *gorm.DB
+	uSvc svc.IUserService
 }
 
-type User struct {
-	ID     		int    		`json:"id" sql:"id"`
-	Name   		string 		`json:"name" sql:"name"`
-	Secret 		string 		`json:"secret" sql:"secret"`
-	//AccessToken []string 	`json:"access_tokens" sql:"access_tokens"`  
-}
-
-func NewUserController(db *gorm.DB) *UserController {
-	return &UserController{db: db}
+func NewUserController(uService svc.IUserService) *UserController {
+	return &UserController{uSvc: uService}
 }
 
 func (*UserController) Path() string {
@@ -33,38 +24,25 @@ func (*UserController) Path() string {
 func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
-		var users []User
-		result := c.db.Find(&users)
-		if result.Error != nil {
+		users, dbErr := c.uSvc.GetAll()
+		if dbErr != nil {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(users)
 		return
 	case "POST":
-		var usrBody User
+		var usrBody svc.User
 		err := json.NewDecoder(r.Body).Decode(&usrBody)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		// Hash the password
-		h := sha256.New()
-		h.Write([]byte(usrBody.Secret))
-		hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-		newUser := User{
-			Name:   usrBody.Name,
-			Secret: hashSecret,
-		}
-
-		// Write to the pscale
-		result := c.db.Create(&newUser)
-		if result.Error != nil {
+		dbErr := c.uSvc.Create(usrBody)
+		if dbErr != nil {
 			http.Error(w, "internal server error: failed to create user", http.StatusInternalServerError)
 			return
 		}
-
 		// Respond with created
 		json.NewEncoder(w).Encode("Created")
 		return
@@ -74,11 +52,11 @@ func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 }
 
 type UserByIdController struct {
-	db *gorm.DB
+	uSvc svc.IUserService
 }
 
-func NewUserByIdController(db *gorm.DB) *UserByIdController {
-	return &UserByIdController{db: db}
+func NewUserByIdController(uService svc.IUserService) *UserByIdController {
+	return &UserByIdController{uSvc: uService}
 }
 
 func (*UserByIdController) Path() string {
@@ -97,10 +75,9 @@ func (c *UserByIdController) WriteResponse(w http.ResponseWriter, r *http.Reques
 				http.Error(w, "bad request: invalid ID provided", http.StatusBadRequest)
 				return
 			}
-			var user User
-			result := c.db.First(&user, User{ID: marks})
-			if result.Error != nil {
-				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			user, dbErr := c.uSvc.GetByID(marks)
+			if dbErr != nil {
+				http.Error(w, dbErr.Error(), http.StatusInternalServerError)
 				return
 			}
 			json.NewEncoder(w).Encode(user)
@@ -118,10 +95,8 @@ func (c *UserByIdController) WriteResponse(w http.ResponseWriter, r *http.Reques
 				http.Error(w, "bad request: invalid ID provided", http.StatusBadRequest)
 				return
 			}
-			var user User
-			result := c.db.Delete(&user, User{ID: marks})
-			if result.Error != nil {
-				http.Error(w, result.Error.Error(), http.StatusInternalServerError)
+			if c.uSvc.Delete(marks) != nil {
+				http.Error(w, "failed to delete", http.StatusInternalServerError)
 				return
 			}
 			json.NewEncoder(w).Encode("Deleted")

@@ -62,13 +62,17 @@ func main() {
 				services.NewClientService,
 				fx.As(new(services.IClientService)),
 			),
+			fx.Annotate(
+				services.NewUserService,
+				fx.As(new(services.IUserService)),
+			),
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
-			AsApiHandle(controllers.NewUserByIdController),
+			// AsApiHandle(controllers.NewUserByIdController),
 			AsApiHandle(controllers.NewClientController),
 			AsApiHandle(controllers.NewClientByIdController),
 		),
-		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService) {}),
+		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService, services.IUserService) {}),
 	).Run()
 }
