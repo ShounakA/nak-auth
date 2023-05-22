@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 
@@ -10,6 +11,8 @@ import (
 type IUserService interface {
 	GetAll() ([]User, error)
 	GetByID(id int) (User, error)
+	AddAuthorizedClient(id int, cliend_id string) error
+	AddAuthorizationCode(id int) (string, error)
 	Create(newUser User) error
 	Delete(id int) error
 }
@@ -19,10 +22,20 @@ type UserService struct {
 }
 
 type User struct {
-	ID                int    `json:"id" sql:"id"`
-	Name              string `json:"name" sql:"name"`
-	Secret            string `json:"secret" sql:"secret"`
-	AuthorizedClients string `json:"-" sql:"authorized_clients" gorm:"many2many:user_clients"`
+	ID      int      `json:"id" sql:"id" gorm:"primaryKey"`
+	Name    string   `json:"name" sql:"name"`
+	Secret  string   `json:"secret" sql:"secret"`
+	Clients []Client `json:"-" sql:"authorizedClients" gorm:"many2many:user_clients"`
+	Codes   []Code   `json:"-" sql:"codes" gorm:"foreignKey:UserRefer"`
+}
+
+type Code struct {
+	Secret    string
+	UserRefer uint
+}
+
+func (User) CreateTable() string {
+	return "users"
 }
 
 func NewUserService(db *gorm.DB) *UserService {
@@ -32,7 +45,7 @@ func NewUserService(db *gorm.DB) *UserService {
 func (cs *UserService) GetAll() ([]User, error) {
 	var users []User
 	var dbError error = nil
-	result := cs.db.Model(&User{}).Preload("AuthorizedClients").Find(&users)
+	result := cs.db.Model(&User{}).Find(&users)
 	if result.Error != nil {
 		dbError = result.Error
 	}
@@ -42,7 +55,7 @@ func (cs *UserService) GetAll() ([]User, error) {
 func (cs *UserService) GetByID(id int) (User, error) {
 	var user User
 	var dbErr error = nil
-	result := cs.db.Model(&User{}).Preload("AuthorizedClients").First(&user, User{ID: id})
+	result := cs.db.Model(&User{}).First(&user, User{ID: id})
 	if result.Error != nil {
 		dbErr = result.Error
 	}
@@ -67,6 +80,37 @@ func (cs *UserService) Create(newUser User) error {
 		dbErr = result.Error
 	}
 	return dbErr
+}
+
+func (cs *UserService) AddAuthorizedClient(id int, cliend_id string) error {
+	var client Client
+	var dbErr error = nil
+	result := cs.db.Model(&Client{}).Preload("Scopes").First(&client, Client{Name: cliend_id})
+	if result.Error != nil {
+		dbErr = result.Error
+	}
+	err := cs.db.Model(&User{}).Where("id = ?", true).Association("Clients").Append(&client)
+	if err != nil {
+		dbErr = err
+	}
+	return dbErr
+}
+
+func (cs *UserService) AddAuthorizationCode(id int) (string, error) {
+	var dbErr error = nil
+	var code string = ""
+	buf := make([]byte, 64)
+	_, dbErr = rand.Read(buf)
+	if dbErr != nil {
+		return code, dbErr
+	}
+	auth_code := base64.StdEncoding.EncodeToString(buf)
+	dbErr = cs.db.Model(&User{}).Where("id = ?", true).Association("Codes").Append(Code{Secret: auth_code})
+	if dbErr != nil {
+		return code, dbErr
+	}
+	code = auth_code
+	return code, nil
 }
 
 func (cs *UserService) Delete(id int) error {

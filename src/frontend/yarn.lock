@@ -1821,6 +1821,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nak-auth-login@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "nak-auth-login@workspace:."
+  dependencies:
+    "@solidjs/router": ^0.8.2
+    autoprefixer: ^10.4.14
+    postcss: ^8.4.21
+    rxjs: ^7.8.0
+    solid-js: ^1.6.10
+    tailwindcss: ^3.2.7
+    typescript: ^4.9.5
+    vite: ^4.1.1
+    vite-plugin-solid: ^2.5.0
+  languageName: unknown
+  linkType: soft
+
 "nanoid@npm:^3.3.4":
   version: 3.3.4
   resolution: "nanoid@npm:3.3.4"
@@ -2500,22 +2516,6 @@ __metadata:
   checksum: e974ae7bb2f338a7660e90504e9f8e2f897806adbb111e953796c747d8709a83a634cba3dbd64b34dda6d97a2a5b66d08069f3c1ccba92240fda506d86d13221
   languageName: node
   linkType: hard
-
-"vite-template-solid@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "vite-template-solid@workspace:."
-  dependencies:
-    "@solidjs/router": ^0.8.2
-    autoprefixer: ^10.4.14
-    postcss: ^8.4.21
-    rxjs: ^7.8.0
-    solid-js: ^1.6.10
-    tailwindcss: ^3.2.7
-    typescript: ^4.9.5
-    vite: ^4.1.1
-    vite-plugin-solid: ^2.5.0
-  languageName: unknown
-  linkType: soft
 
 "vite@npm:^4.1.1":
   version: 4.1.4

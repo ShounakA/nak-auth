@@ -42,6 +42,9 @@ yarn-error.log*
 # keys
 /keys*
 
+# static html files in backend should be generated and not committed
+**/src/static
+
 /containers
 **/prisma/*.db
 

@@ -53,6 +53,10 @@ func ListOfClientsToListOfClientJson(clients []Client) []ClientJson {
 	return client_json
 }
 
+func (scope Scope) From() string {
+	return scope.Name
+}
+
 func (client Client) From() ClientJson {
 	scopes := []string{}
 	for i := 0; i < len(client.Scopes); i++ {

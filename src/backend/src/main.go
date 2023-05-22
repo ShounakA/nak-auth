@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"nak-auth/controllers"
+	"nak-auth/controllers/auth"
 	"nak-auth/db"
 	"nak-auth/services"
 	"net"
@@ -35,6 +36,7 @@ func NewHTTPServer(lc fx.Lifecycle, mux *mux.Router) *http.Server {
 
 func NewServeMux(routes []controllers.ApiHandle) *mux.Router {
 	mux := mux.NewRouter()
+	// mux.PathPrefix("/").Handler(http.FileServer((http.Dir("./static/"))))
 	for _, route := range routes {
 		mux.HandleFunc(route.Path(), route.WriteResponse)
 	}
@@ -66,13 +68,20 @@ func main() {
 				services.NewUserService,
 				fx.As(new(services.IUserService)),
 			),
+			fx.Annotate(
+				services.NewLoginService,
+				fx.As(new(services.ILoginService)),
+			),
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
 			AsApiHandle(controllers.NewUserByIdController),
 			AsApiHandle(controllers.NewClientController),
 			AsApiHandle(controllers.NewClientByIdController),
+			AsApiHandle(auth.NewAuthController),
+			AsApiHandle(auth.NewLoginController),
+			AsApiHandle(auth.NewAssetController),
 		),
-		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService, services.IUserService) {}),
+		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService) {}),
 	).Run()
 }
