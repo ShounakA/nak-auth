@@ -1,0 +1,52 @@
+{{define "loginDialog"}}
+<script>
+    function performBasicAuth(form) {
+      // Get the username and password from the form
+      var username = form.username.value;
+      var password = form.secret.value;
+  
+      // Encode the username and password in Base64 format
+      var auth = btoa(username + ":" + password);
+  
+      // Set the Authorization header in the HTTP request
+      fetch(form.action, {
+        method: "POST",
+        headers: {
+          "Authorization": "Basic " + auth,
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          window.location.href = response.url;
+          return;
+        } else {
+            document.getElementById("message").innerHTML = "Invalid username or password";
+        }
+      })
+      .catch(error => {
+        // Handle errors here...
+      });
+  
+      // Prevent the form from submitting normally
+      return false;
+    }
+  </script>
+  <div id="form" class="border-white border-2 w-80 rounded-2xl m-auto">
+    <div class="py-5 px-5">
+      <form class="flex flex-col" action="login?redirect_uri={{.Redirect}}" method="post" onsubmit="return performBasicAuth(this);">
+        <div class="flex flex-row justify-between">
+        <label for="username">Username: </label>
+          <input type="text" id="username" name="username" class="py-1 bg-black text-white" placeholder="something@gmail.com" />
+        </div>
+        <div class="flex flex-row justify-between">
+          <label for="secret">Password: </label>
+          <input type="password" id="secret" name="secret" class="py-1 bg-black text-white" />
+        </div>
+        <div class="flex flex-row justify-end py-2">
+          <button class="bg-blue-800 p-1 rounded" value="Login">Authorize</button>
+        </div>
+      </form>
+      <p id="message" class="text-red-600"></p>
+    </div>
+  </div>
+{{end}}
