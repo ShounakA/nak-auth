@@ -62,12 +62,13 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 		requestRedirect := fmt.Sprintf("%s?access_token=%s", redirect_uri, token.AccessToken)
 		if mode == "authorize" {
 			client_id := r.URL.Query().Get("client_id")
+			challenge := r.URL.Query().Get("code_challenge")
 			err = l.user_svc.AddAuthorizedClient(userId, client_id)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			code, err = l.user_svc.AddAuthorizationCode(userId)
+			code, err = l.user_svc.AddAuthorizationCode(userId, challenge)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

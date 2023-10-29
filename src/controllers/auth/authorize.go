@@ -47,6 +47,7 @@ func (l *AuthController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 }
 
 func checkAuthorizeParams(url *url.URL) (Authorize, error) {
@@ -54,12 +55,13 @@ func checkAuthorizeParams(url *url.URL) (Authorize, error) {
 
 	response_type := query.Get("response_type")
 	client_id := query.Get("client_id")
+	code_challenge := query.Get("code_challenge")
 	scope := strings.Split(query.Get("scope"), " ")
 	redirect_uri := query.Get("redirect_uri")
 	grant_type := query.Get("grant_type")
 
-	if response_type == "" || client_id == "" || scope[0] == "" || redirect_uri == "" || grant_type == "" {
-		return Authorize{}, errors.New("Missing query params. response_type, client_id, scope, redirect_uri, grant_type are all required.")
+	if response_type == "" || client_id == "" || scope[0] == "" || redirect_uri == "" || grant_type == "" || code_challenge == "" {
+		return Authorize{}, errors.New("Missing query params. response_type, client_id, scope, redirect_uri, grant_type, and code_challenge are all required.")
 	}
 
 	return Authorize{

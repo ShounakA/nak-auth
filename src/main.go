@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"nak-auth/controllers"
 	"nak-auth/controllers/auth"
 	"nak-auth/controllers/pages"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	"go.uber.org/fx"
 	"gorm.io/gorm"
 )
@@ -52,7 +54,24 @@ func AsApiHandle(f any) any {
 	)
 }
 
+func AsSingleton(implementation, specification interface{}) interface{} {
+	return fx.Annotate(
+		implementation,
+		fx.As(specification),
+	)
+}
+
+func InjectThis(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService, services.ITokenService) {
+	// This is here to force fx to inject the dependencies
+	// into the functions above. Otherwise, they will not
+	// be injected.
+}
+
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	fx.New(
 		fx.Provide(
 			NewHTTPServer,
@@ -61,22 +80,13 @@ func main() {
 				NewServeMux,
 				fx.ParamTags(`group:"routes"`),
 			),
-			fx.Annotate(
-				services.NewClientService,
-				fx.As(new(services.IClientService)),
-			),
-			fx.Annotate(
-				services.NewUserService,
-				fx.As(new(services.IUserService)),
-			),
-			fx.Annotate(
-				services.NewLoginService,
-				fx.As(new(services.ILoginService)),
-			),
-			fx.Annotate(
-				services.NewTokenService,
-				fx.As(new(services.ITokenService)),
-			),
+			// Adds Services
+			AsSingleton(services.NewClientService, new(services.IClientService)),
+			AsSingleton(services.NewUserService, new(services.IUserService)),
+			AsSingleton(services.NewLoginService, new(services.ILoginService)),
+			AsSingleton(services.NewTokenService, new(services.ITokenService)),
+
+			// Adds Controllers
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
@@ -88,7 +98,6 @@ func main() {
 			AsApiHandle(auth.NewLoginController),
 			AsApiHandle(pages.NewHomeController),
 		),
-		fx.Invoke(func(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService, services.ITokenService) {
-		}),
+		fx.Invoke(InjectThis),
 	).Run()
 }
