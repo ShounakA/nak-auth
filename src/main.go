@@ -95,7 +95,6 @@ func main() {
 
 			// Adds API Controllers
 			AsApiHandle(controllers.NewHealthController),
-			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
 			AsApiHandle(controllers.NewUserByIdController),
 			AsApiHandle(controllers.NewClientController),
