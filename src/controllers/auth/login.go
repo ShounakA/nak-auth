@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"nak-auth/services"
-	"nak-auth/templates"
 	"net/http"
 	"strings"
 )
@@ -78,15 +77,9 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		http.Redirect(w, r, requestRedirect, http.StatusSeeOther)
-	case "GET":
-		redirect_uri := r.URL.Query().Get("redirect_uri")
-		issuer := r.URL.Query().Get("issuer")
-		if redirect_uri == "" {
-			redirect_uri = "http://localhost:8080"
-		}
-		if issuer == "" {
-			issuer = "nak-auth"
-		}
-		templates.WriteLoginPage(w, templates.LoginPageData{Redirect: redirect_uri, Issuer: issuer})
+		return
+	default:
+		http.Error(w, "Not Found", http.StatusNotFound)
+
 	}
 }

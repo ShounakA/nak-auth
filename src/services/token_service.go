@@ -1,6 +1,8 @@
 package services
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -19,9 +21,10 @@ type AccessToken struct {
 
 type ITokenService interface {
 	CreateRefreshToken(clientId string) (string, error)
-	CreateAccessToken(clientId string) (AccessToken, error)
-	CreateAccessTokenWithAuthorization(clientId, userName, authorization_code string) (AccessToken, error)
-	CreateAccessTokenFromRefreshToken(refreshToken string) (AccessToken, error)
+	CreateAccessToken(clientId, clientSecret string) (AccessToken, error)
+	CreateAccessTokenWithAuthorization(clientId, clientSecret, userName, authorization_code string) (AccessToken, error)
+	CreateAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken string) (AccessToken, error)
+	GenerateSecret(clientId string) string
 }
 
 type TokenService struct {
@@ -34,7 +37,7 @@ func NewTokenService(db *gorm.DB) *TokenService {
 	return &TokenService{tokenSigningKey: signKey}
 }
 
-func (s *TokenService) CreateAccessToken(clientId string) (AccessToken, error) {
+func (s *TokenService) CreateAccessToken(clientId, clientSecret string) (AccessToken, error) {
 	// Create a new JWT token
 	token := jwt.New(jwt.SigningMethodHS256)
 
@@ -46,7 +49,7 @@ func (s *TokenService) CreateAccessToken(clientId string) (AccessToken, error) {
 	claims["client_id"] = clientId
 
 	// Sign the token with the secret key
-	tokenString, err := token.SignedString([]byte(s.tokenSigningKey))
+	tokenString, err := token.SignedString([]byte(clientSecret))
 	if err != nil {
 		return AccessToken{}, err
 	}
@@ -58,7 +61,7 @@ func (s *TokenService) CreateAccessToken(clientId string) (AccessToken, error) {
 	}, nil
 }
 
-func (s *TokenService) CreateAccessTokenWithAuthorization(clientId, userName, authorization_code string) (AccessToken, error) {
+func (s *TokenService) CreateAccessTokenWithAuthorization(clientId, clientSecret, userName, authorization_code string) (AccessToken, error) {
 	// Create a new JWT token
 	token := jwt.New(jwt.SigningMethodHS256)
 
@@ -72,7 +75,7 @@ func (s *TokenService) CreateAccessTokenWithAuthorization(clientId, userName, au
 	claims["authorization_code"] = authorization_code
 
 	// Sign the token with the secret key
-	tokenString, err := token.SignedString([]byte(s.tokenSigningKey))
+	tokenString, err := token.SignedString([]byte(clientSecret))
 	if err != nil {
 		return AccessToken{}, err
 	}
@@ -107,15 +110,14 @@ func (s *TokenService) CreateRefreshToken(clientId string) (string, error) {
 	return tokenString, nil
 }
 
-func (s *TokenService) CreateAccessTokenFromRefreshToken(refreshToken string) (AccessToken, error) {
+func (s *TokenService) CreateAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken string) (AccessToken, error) {
 	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
 		// Check the signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-
 		// Return the signing key
-		return []byte(s.tokenSigningKey), nil
+		return []byte(clientSecret), nil
 	})
 	if err != nil {
 		return AccessToken{}, err
@@ -131,10 +133,23 @@ func (s *TokenService) CreateAccessTokenFromRefreshToken(refreshToken string) (A
 	if time.Now().After(expirationTime) {
 		return AccessToken{}, errors.New("token has expired")
 	}
-	accessToken, err := s.CreateAccessToken(claims["client_id"].(string))
+	if clientId != claims["client_id"].(string) {
+		return AccessToken{}, errors.New("invalid client id")
+	}
+	accessToken, err := s.CreateAccessToken(claims["client_id"].(string), clientSecret)
 	if err != nil {
 		return AccessToken{}, err
 	}
 	return accessToken, nil
+}
 
+func (s *TokenService) GenerateSecret(clientId string) string {
+	currentTime := time.Now().String()
+	clientSecret := clientId + currentTime
+	// Hash the password
+
+	h := sha256.New()
+	h.Write([]byte(clientSecret))
+	hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
+	return hashSecret
 }

@@ -1,26 +1,20 @@
 package pages
 
 import (
-	"nak-auth/services"
 	"nak-auth/templates"
 	"net/http"
 )
 
-type HomeController struct {
-	uSvc services.ILoginService
+type HomePage struct{}
+
+func NewHomePage() *HomePage {
+	return &HomePage{}
 }
 
-func NewHomeController() *HomeController {
-	return &HomeController{}
-}
-
-func (*HomeController) Path() string {
+func (*HomePage) Path() string {
 	return "/"
 }
 
-func (l *HomeController) WriteResponse(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		templates.WriteHomePage(w)
-	}
+func (l *HomePage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	templates.WriteHomePage(w)
 }

@@ -45,12 +45,12 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 
 		switch accessBody.GrantType {
 		case "authorization_code":
-			hasAuth, dberr := l.user_svc.VerifyAuthorizationCode(accessBody.AuthorizationCode, accessBody.CodeVerifier, accessBody.ClientId)
-			if !hasAuth || dberr != nil {
+			user, dberr := l.user_svc.VerifyAuthorizationCode(accessBody.AuthorizationCode, accessBody.CodeVerifier, accessBody.ClientId)
+			if dberr != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			accessToken, err := l.token_svc.CreateAccessTokenWithAuthorization(accessBody.ClientId, accessBody.ClientId, accessBody.AuthorizationCode)
+			accessToken, err := l.token_svc.CreateAccessTokenWithAuthorization(accessBody.ClientId, accessBody.ClientSecret, user.Name, accessBody.AuthorizationCode)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -58,7 +58,7 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			json.NewEncoder(w).Encode(accessToken)
 			break
 		case "refresh_token":
-			token, err := l.token_svc.CreateAccessTokenFromRefreshToken(accessBody.RefreshToken)
+			token, err := l.token_svc.CreateAccessTokenFromRefreshToken(accessBody.ClientId, accessBody.ClientSecret, accessBody.RefreshToken)
 			if err != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -83,7 +83,7 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			accessToken, err := l.token_svc.CreateAccessToken(accessBody.ClientId)
+			accessToken, err := l.token_svc.CreateAccessToken(accessBody.ClientId, accessBody.ClientSecret)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

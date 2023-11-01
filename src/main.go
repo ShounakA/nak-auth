@@ -37,11 +37,13 @@ func NewHTTPServer(lc fx.Lifecycle, mux *mux.Router) *http.Server {
 	return srv
 }
 
-func NewServeMux(routes []controllers.ApiHandle) *mux.Router {
+func NewServeMux(routes []controllers.ApiHandle, pages []controllers.PageHandle) *mux.Router {
 	mux := mux.NewRouter()
-	// mux.PathPrefix("/").Handler(http.FileServer((http.Dir("./static/"))))
 	for _, route := range routes {
-		mux.HandleFunc(route.Path(), route.WriteResponse)
+		mux.HandleFunc(fmt.Sprintf("/api%s", route.Path()), route.WriteResponse)
+	}
+	for _, page := range pages {
+		mux.Handle(page.Path(), page)
 	}
 	return mux
 }
@@ -54,6 +56,14 @@ func AsApiHandle(f any) any {
 	)
 }
 
+func AsPageHandle(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(controllers.PageHandle)),
+		fx.ResultTags(`group:"pages"`),
+	)
+}
+
 func AsSingleton(implementation, specification interface{}) interface{} {
 	return fx.Annotate(
 		implementation,
@@ -61,24 +71,21 @@ func AsSingleton(implementation, specification interface{}) interface{} {
 	)
 }
 
-func InjectThis(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService, services.ITokenService) {
-	// This is here to force fx to inject the dependencies
-	// into the functions above. Otherwise, they will not
-	// be injected.
-}
-
-func main() {
+func Startup(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService, services.ITokenService) {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+}
+
+func main() {
 	fx.New(
 		fx.Provide(
 			NewHTTPServer,
 			db.NewLibSqlClient,
 			fx.Annotate(
 				NewServeMux,
-				fx.ParamTags(`group:"routes"`),
+				fx.ParamTags(`group:"routes"`, `group:"pages"`),
 			),
 			// Adds Services
 			AsSingleton(services.NewClientService, new(services.IClientService)),
@@ -86,7 +93,7 @@ func main() {
 			AsSingleton(services.NewLoginService, new(services.ILoginService)),
 			AsSingleton(services.NewTokenService, new(services.ITokenService)),
 
-			// Adds Controllers
+			// Adds API Controllers
 			AsApiHandle(controllers.NewHealthController),
 			AsApiHandle(controllers.NewCounterController),
 			AsApiHandle(controllers.NewUserController),
@@ -96,8 +103,12 @@ func main() {
 			AsApiHandle(auth.NewAuthController),
 			AsApiHandle(auth.NewAccessController),
 			AsApiHandle(auth.NewLoginController),
-			AsApiHandle(pages.NewHomeController),
+
+			// Adds Pages
+			AsPageHandle(pages.NewHomePage),
+			AsPageHandle(pages.NewLoginPage),
+			AsPageHandle(pages.NewClientsPage),
 		),
-		fx.Invoke(InjectThis),
+		fx.Invoke(Startup),
 	).Run()
 }

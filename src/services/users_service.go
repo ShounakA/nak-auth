@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 
 	"gorm.io/gorm"
 )
@@ -13,7 +14,7 @@ type IUserService interface {
 	GetByID(id int) (User, error)
 	AddAuthorizedClient(id int, cliend_id string) error
 	AddAuthorizationCode(id int, challenge string) (string, error)
-	VerifyAuthorizationCode(code, code_verifier, clientId string) (bool, error)
+	VerifyAuthorizationCode(code, code_verifier, clientId string) (User, error)
 	Create(newUser User) error
 	Delete(id int) error
 }
@@ -115,16 +116,14 @@ func (cs *UserService) AddAuthorizationCode(id int, challenge string) (string, e
 	return code, nil
 }
 
-func (cs *UserService) VerifyAuthorizationCode(auth_code, code_verifier, clientId string) (bool, error) {
+func (cs *UserService) VerifyAuthorizationCode(auth_code, code_verifier, clientId string) (User, error) {
 	var user User
 	hasAuthorization := false
 	var dbErr error = nil
 	result := cs.db.Model(&User{}).Preload("Codes").Preload("Clients").Where("codes.secret = ?", auth_code).Where("clients.name = ?", clientId).First(&user)
 	if result.Error != nil {
 		dbErr = result.Error
-	}
-	if user.ID == 0 {
-		return false, dbErr
+		return user, dbErr
 	}
 	for _, code := range user.Codes {
 		if code.Secret == auth_code {
@@ -137,7 +136,10 @@ func (cs *UserService) VerifyAuthorizationCode(auth_code, code_verifier, clientI
 			}
 		}
 	}
-	return hasAuthorization, dbErr
+	if hasAuthorization == true {
+		return user, nil
+	}
+	return User{}, errors.New("invalid authorization code")
 }
 
 func (cs *UserService) Delete(id int) error {

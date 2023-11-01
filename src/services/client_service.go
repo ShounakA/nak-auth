@@ -1,9 +1,6 @@
 package services
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
-
 	"gorm.io/gorm"
 )
 
@@ -15,7 +12,8 @@ type IClientService interface {
 }
 
 type ClientService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	token_svc ITokenService
 }
 
 type Client struct {
@@ -33,8 +31,8 @@ type Scope struct {
 
 type ClientJson struct {
 	Name      string `json:"name"`
-	Secret    string `json:"secret"`
 	GrantType string `json:"grant_type"`
+	Secret    string `json:"secret",omitempty`
 
 	RedirectURI string   `json:"redirect_uri"`
 	Scopes      []string `json:"scope"`
@@ -98,8 +96,8 @@ func (Client) CreateTable() string {
 	return "clients"
 }
 
-func NewClientService(db *gorm.DB) *ClientService {
-	return &ClientService{db: db}
+func NewClientService(db *gorm.DB, tkn_svc ITokenService) *ClientService {
+	return &ClientService{db: db, token_svc: tkn_svc}
 }
 
 func (cs *ClientService) GetAll() ([]Client, error) {
@@ -125,10 +123,8 @@ func (cs *ClientService) GetByID(id string) (Client, error) {
 func (cs *ClientService) Create(newClient ClientJson) error {
 
 	var dbErr error = nil
-	// Hash the password
-	h := sha256.New()
-	h.Write([]byte(newClient.Secret))
-	hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
+
+	hashSecret := cs.token_svc.GenerateSecret(newClient.Name)
 
 	var scopes = []Scope{}
 	for i := 0; i < len(newClient.Scopes); i++ {
