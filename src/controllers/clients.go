@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"nak-auth/models"
 	srv "nak-auth/services"
 	"nak-auth/templates"
 	"net/http"
@@ -29,7 +30,7 @@ func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			http.Error(w, dbErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		client_json := srv.ListOfClientsToListOfClientJson(clients)
+		client_json := models.ListOfClientsToListOfClientJson(clients)
 		if r.Header.Get("Hx-Request") == "true" {
 			templates.WriteClientsFragment(w, clients)
 		} else {
@@ -37,7 +38,7 @@ func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	case "POST":
-		var usrBody srv.ClientJson
+		var usrBody models.ClientJson
 		if (r.Header.Get("Content-Type") == "application/json") && (r.Header.Get("Content-Type") == "application/json; charset=utf-8") {
 			err := json.NewDecoder(r.Body).Decode(&usrBody)
 			if err != nil {

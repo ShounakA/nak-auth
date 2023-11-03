@@ -3,7 +3,7 @@ package templates
 import (
 	"html/template"
 	"io"
-	"nak-auth/services"
+	"nak-auth/models"
 )
 
 type LoginPageData struct {
@@ -14,7 +14,7 @@ type LoginPageData struct {
 
 type ClientsPageData struct {
 	Title   string
-	Clients []services.Client
+	Clients []models.Client
 }
 
 func WriteLoginPage(w io.Writer, data LoginPageData) error {
@@ -28,13 +28,13 @@ func WriteHomePage(w io.Writer) error {
 	return homePage.Execute(w, nil)
 }
 
-func WriteClientsPage(w io.Writer, clients []services.Client) error {
+func WriteClientsPage(w io.Writer, clients []models.Client) error {
 	clientsPage := template.Must(template.ParseFiles("templates/pages/clients.html", "templates/components.html"))
 	data := ClientsPageData{Title: "Clients", Clients: clients}
 	return clientsPage.Execute(w, data)
 }
 
-func WriteClientsFragment(w io.Writer, clients []services.Client) error {
+func WriteClientsFragment(w io.Writer, clients []models.Client) error {
 	clientsPage := template.Must(template.ParseFiles("templates/fragments/clientList.html", "templates/components.html"))
 	return clientsPage.Execute(w, ClientsPageData{Title: "Clients", Clients: clients})
 }

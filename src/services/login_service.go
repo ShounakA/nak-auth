@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"nak-auth/models"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -27,7 +28,7 @@ type Login struct {
 }
 
 func (ls *LoginService) Login(username string, secret string) (bool, int, AccessToken, error) {
-	var user User
+	var user models.User
 	var token AccessToken
 	var userId int = -1
 	var err error
@@ -35,7 +36,7 @@ func (ls *LoginService) Login(username string, secret string) (bool, int, Access
 	h := sha256.New()
 	h.Write([]byte(secret))
 	hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-	result := ls.db.Model(&User{}).First(&user, User{Name: username, Secret: hashSecret})
+	result := ls.db.Model(&models.User{}).First(&user, models.User{Name: username, Secret: hashSecret})
 	if result.Error != nil {
 		success = false
 	} else {

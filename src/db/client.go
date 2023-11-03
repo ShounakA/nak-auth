@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 	"log"
-	"nak-auth/services"
+	"nak-auth/models"
 	"os"
 
 	"go.uber.org/fx"
@@ -21,7 +21,7 @@ func NewPScaleClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			db.AutoMigrate(&services.Code{}, &services.User{}, &services.Client{})
+			db.AutoMigrate(&models.Code{}, &models.User{}, &models.Client{})
 			return nil
 		},
 	})
@@ -35,7 +35,7 @@ func NewLibSqlClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	}
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			db.AutoMigrate(&services.Code{}, &services.User{}, &services.Client{})
+			db.AutoMigrate(&models.Code{}, &models.User{}, &models.Client{})
 			return nil
 		},
 	})

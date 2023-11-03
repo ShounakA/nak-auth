@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"nak-auth/models"
 	svc "nak-auth/services"
 	"net/http"
 	"strconv"
@@ -32,7 +33,7 @@ func (c *UserController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(users)
 		return
 	case "POST":
-		var usrBody svc.User
+		var usrBody models.User
 		err := json.NewDecoder(r.Body).Decode(&usrBody)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
