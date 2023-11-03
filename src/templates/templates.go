@@ -35,8 +35,8 @@ func WriteClientsPage(w io.Writer, clients []models.Client) error {
 }
 
 func WriteClientsFragment(w io.Writer, clients []models.Client) error {
-	clientsPage := template.Must(template.ParseFiles("templates/fragments/clientList.html", "templates/components.html"))
-	return clientsPage.Execute(w, ClientsPageData{Title: "Clients", Clients: clients})
+	clientsPage := template.Must(template.ParseFiles("templates/components.html"))
+	return clientsPage.ExecuteTemplate(w, "clientRange", ClientsPageData{Title: "Clients", Clients: clients})
 }
 
 func WriteClientFragment(w io.Writer) error {
