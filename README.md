@@ -3,7 +3,8 @@
 Welcome to nak-auth. It's a personal project where I am trying to implement OAuth 2.0, and build myself an Authentication and Authorization Server. 
 
 ## Currently it supports:
- - basic authentication
+ - session-based authentication
+   - to view and manage your clients
  - client crendentials grant
  - authorization code grant
  - refresh token grant

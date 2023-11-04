@@ -9,3 +9,8 @@ install:
 	go get .
 dbDevProxy:
 	pscale connect nak-data staging
+test:
+	cd src; \
+	go test ./... -v -coverprofile=coverage.out; \
+	go tool cover -html=coverage.out -o coverage.html; \
+	go tool cover -func=coverage.out;

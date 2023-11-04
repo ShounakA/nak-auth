@@ -44,7 +44,7 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 		password := credentials[1]
 
 		// Authenticate the user with the username and password
-		succ, userId, token, err := l.login_svc.Login(username, password)
+		succ, userId, token, err := l.login_svc.AuthenticateUser(username, password)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -75,7 +75,8 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 			requestRedirect = fmt.Sprintf("%s?code=%s", redirect_uri, code)
 		}
 
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// w.Header().Set("Access-Control-Allow-Origin", "*")
+		l.login_svc.SaveSession(w, r)
 		http.Redirect(w, r, requestRedirect, http.StatusSeeOther)
 		return
 	default:

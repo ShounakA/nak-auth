@@ -4,30 +4,35 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"nak-auth/models"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/sessions"
 	"gorm.io/gorm"
 )
 
 type LoginService struct {
-	db *gorm.DB
+	db          *gorm.DB
+	sessionName string
+	store       *sessions.CookieStore
 }
 
 type ILoginService interface {
-	Login(username string, secret string) (bool, int, AccessToken, error)
+	AuthenticateUser(username string, secret string) (bool, int, AccessToken, error)
+	ClientIsAuthenticated(r *http.Request) bool
+	SaveSession(w http.ResponseWriter, r *http.Request) error
 }
 
 func NewLoginService(db *gorm.DB) *LoginService {
-	return &LoginService{db: db}
+	sessionKey := os.Getenv("TOKEN_SIGNING_KEY")
+	sessionName := "nak-auth-session"
+	store := sessions.NewCookieStore([]byte(sessionKey))
+	return &LoginService{db: db, sessionName: sessionName, store: store}
 }
 
-type Login struct {
-	Name   string `json:"username"`
-	Secret string `json:"secret"`
-}
-
-func (ls *LoginService) Login(username string, secret string) (bool, int, AccessToken, error) {
+func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, int, AccessToken, error) {
 	var user models.User
 	var token AccessToken
 	var userId int = -1
@@ -47,6 +52,22 @@ func (ls *LoginService) Login(username string, secret string) (bool, int, Access
 	return success, userId, token, err
 }
 
+func (ls *LoginService) ClientIsAuthenticated(r *http.Request) bool {
+	session, _ := ls.store.Get(r, ls.sessionName)
+	// Check if user is authenticated
+	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
+		return false
+	}
+	return true
+}
+
+func (ls *LoginService) SaveSession(w http.ResponseWriter, r *http.Request) error {
+	session, _ := ls.store.Get(r, ls.sessionName)
+	session.Values["authenticated"] = true
+	return session.Save(r, w)
+}
+
+// TODO move to Token Service
 func createToken(username string) (AccessToken, error) {
 	// Set the expiration time for the token
 	expirationTime := time.Now().Add(24 * time.Hour)

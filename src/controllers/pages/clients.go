@@ -7,11 +7,12 @@ import (
 )
 
 type ClientsPage struct {
-	cs services.IClientService
+	cs    services.IClientService
+	login services.ILoginService
 }
 
-func NewClientsPage(clientSvc services.IClientService) *ClientsPage {
-	return &ClientsPage{cs: clientSvc}
+func NewClientsPage(clientSvc services.IClientService, loginSvc services.ILoginService) *ClientsPage {
+	return &ClientsPage{cs: clientSvc, login: loginSvc}
 }
 
 func (*ClientsPage) Path() string {
@@ -19,6 +20,10 @@ func (*ClientsPage) Path() string {
 }
 
 func (l *ClientsPage) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !l.login.ClientIsAuthenticated(r) {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
 	clients, error := l.cs.GetAll()
 	if error != nil {
 		http.Error(w, error.Error(), http.StatusInternalServerError)
