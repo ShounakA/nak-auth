@@ -101,7 +101,7 @@ func main() {
 			AsApiHandle(controllers.NewClientController),
 			AsApiHandle(controllers.NewClientByIdController),
 			AsApiHandle(auth.NewAuthController),
-			AsApiHandle(auth.NewAccessController),
+			AsApiHandle(auth.NewTokenController),
 			AsApiHandle(auth.NewLoginController),
 
 			// Adds Pages

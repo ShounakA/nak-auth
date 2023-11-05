@@ -12,6 +12,7 @@ type IClientService interface {
 	GetByID(id string) (models.Client, error)
 	Create(newClient models.ClientJson) error
 	Delete(id string) error
+	Authenticated(clientId string, clientSecret string) bool
 }
 
 type ClientService struct {
@@ -83,4 +84,13 @@ func (cs *ClientService) Delete(id string) error {
 		dbErr = result.Error
 	}
 	return dbErr
+}
+
+func (cs *ClientService) Authenticated(clientId string, clientSecret string) bool {
+	var client models.Client
+	result := cs.db.Model(&models.Client{}).First(&client, models.Client{Name: clientId})
+	if result.Error != nil {
+		return false
+	}
+	return client.Secret == clientSecret
 }
