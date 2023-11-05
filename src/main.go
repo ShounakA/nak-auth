@@ -72,13 +72,14 @@ func AsSingleton(implementation, specification interface{}) interface{} {
 }
 
 func Startup(*http.Server, *gorm.DB, services.IClientService, services.IUserService, services.ILoginService, services.ITokenService) {
+
+}
+
+func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-}
-
-func main() {
 	fx.New(
 		fx.Provide(
 			NewHTTPServer,

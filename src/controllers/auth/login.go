@@ -58,7 +58,7 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 
 		mode := r.URL.Query().Get("mode")
 		redirect_uri := r.URL.Query().Get("redirect_uri")
-		requestRedirect := fmt.Sprintf("%s?access_token=%s", redirect_uri, token.AccessToken)
+		requestRedirect := redirect_uri
 		if mode == "authorize" {
 			client_id := r.URL.Query().Get("client_id")
 			challenge := r.URL.Query().Get("code_challenge")
@@ -75,8 +75,9 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 			requestRedirect = fmt.Sprintf("%s?code=%s", redirect_uri, code)
 		}
 
+		// TODO Check all stored redirect_uri's for the client_id, and add to for CORS
 		// w.Header().Set("Access-Control-Allow-Origin", "*")
-		l.login_svc.SaveSession(w, r)
+		l.login_svc.SaveSession(w, r, token)
 		http.Redirect(w, r, requestRedirect, http.StatusSeeOther)
 		return
 	default:

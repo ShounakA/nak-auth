@@ -24,6 +24,7 @@ type UserService struct {
 	db *gorm.DB
 }
 
+// Create a new user service. This service is responsible for managing users.
 func NewUserService(db *gorm.DB) *UserService {
 	return &UserService{db: db}
 }

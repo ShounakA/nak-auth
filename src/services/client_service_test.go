@@ -4,20 +4,23 @@ import (
 	"nak-auth/models"
 	"testing"
 
+	"github.com/dgrijalva/jwt-go"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 type MockTokenService struct {
 	tokenSigningKey string
+	nakAuthClientId string
+	nakAuthSecret   string
 }
 
 func (s *MockTokenService) GenerateSecret(clientId string) string {
 	return "Secret"
 }
 
-func (s *MockTokenService) CreateAccessToken(clientId, clientSecret string) (AccessToken, error) {
-	return AccessToken{}, nil
+func (s *MockTokenService) CreateAccessToken(clientId, clientSecret, username string) (AccessToken, error) {
+	return AccessToken{AccessToken: "totally_legit_token"}, nil
 }
 
 func (s *MockTokenService) CreateAccessTokenWithAuthorization(clientId, clientSecret, userName, authorization_code string) (AccessToken, error) {
@@ -30,6 +33,10 @@ func (s *MockTokenService) CreateRefreshToken(clientId string) (string, error) {
 
 func (s *MockTokenService) CreateAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken string) (AccessToken, error) {
 	return AccessToken{}, nil
+}
+
+func (s *MockTokenService) VerifyNakAuthAccessToken(token string) (jwt.Claims, error) {
+	return nil, nil
 }
 
 func setupDB() *gorm.DB {
@@ -115,7 +122,7 @@ func TestGetbyID_NotFound(t *testing.T) {
 
 func TestCreate_Success(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db, token_svc: &MockTokenService{tokenSigningKey: "Secret"}}
+	service := ClientService{db: db, token_svc: &MockTokenService{tokenSigningKey: "Secret", nakAuthSecret: "Secret", nakAuthClientId: "Secret"}}
 
 	scopes := []models.Scope{}
 	scopes = append(scopes, models.Scope{Name: "testScope1"})

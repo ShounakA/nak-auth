@@ -5,7 +5,7 @@
         <p>{{.GrantType}}</p>
         <p>{{.RedirectURI}}</p>
     </div>
-    <button hx-delete="/api/clients/{{.Name}}" hx-target="#client-list">
+    <button class="bg-blue-800 p-1 rounded" hx-delete="/api/clients/{{.Name}}" hx-target="#client-list">
         x
     </button>
 </div>
@@ -75,4 +75,13 @@
   {{range .Clients}}
       {{template "clientData" .}}
   {{end}}
+{{end}}
+
+{{define "clientAddForm"}}
+  <form class="bg-black" hx-post="/api/clients" hx-target="#client-list" >
+    <input class="bg-black py-2" type="text" name="name" placeholder="Client ID" />
+    <input class="bg-black py-2" type="text" name="grant_type" placeholder="Grant Type" /> 
+    <input class="bg-black py-2" type="text" name="redirect_uri" placeholder="(Optional) Redirect URI" />
+    <input class="py-2 bg-blue-800 p-1 rounded" type="submit" value="Add Client" />
+  </form>
 {{end}}

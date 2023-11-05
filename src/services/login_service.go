@@ -6,30 +6,38 @@ import (
 	"nak-auth/models"
 	"net/http"
 	"os"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/sessions"
 	"gorm.io/gorm"
 )
 
 type LoginService struct {
-	db          *gorm.DB
-	sessionName string
-	store       *sessions.CookieStore
+	db              *gorm.DB
+	tkn_svc         ITokenService
+	nakAuthClientId string
+	nakAuthSecret   string
+	sessionName     string
+	store           *sessions.CookieStore
 }
 
 type ILoginService interface {
 	AuthenticateUser(username string, secret string) (bool, int, AccessToken, error)
 	ClientIsAuthenticated(r *http.Request) bool
-	SaveSession(w http.ResponseWriter, r *http.Request) error
+	SaveSession(w http.ResponseWriter, r *http.Request, token AccessToken) error
 }
 
-func NewLoginService(db *gorm.DB) *LoginService {
+// Creates a new login service. This services is responsible for authenticating users and creating sessions.
+// It is also responsible for verifying that a client is authenticated.
+// param db: The database connection
+// param tkn_svc: The token service
+func NewLoginService(db *gorm.DB, tkn_svc ITokenService) *LoginService {
 	sessionKey := os.Getenv("TOKEN_SIGNING_KEY")
+	nakAuthClientId := os.Getenv("NAK_AUTH_CLIENT_ID")
+	nakAuthSecret := os.Getenv("NAK_AUTH_CLIENT_SECRET")
+
 	sessionName := "nak-auth-session"
 	store := sessions.NewCookieStore([]byte(sessionKey))
-	return &LoginService{db: db, sessionName: sessionName, store: store}
+	return &LoginService{db: db, sessionName: sessionName, store: store, tkn_svc: tkn_svc, nakAuthClientId: nakAuthClientId, nakAuthSecret: nakAuthSecret}
 }
 
 func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, int, AccessToken, error) {
@@ -46,7 +54,7 @@ func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, 
 		success = false
 	} else {
 		success = true
-		token, err = createToken(username)
+		token, err = ls.tkn_svc.CreateAccessToken(ls.nakAuthClientId, ls.nakAuthSecret, user.Name)
 		userId = user.ID
 	}
 	return success, userId, token, err
@@ -54,41 +62,21 @@ func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, 
 
 func (ls *LoginService) ClientIsAuthenticated(r *http.Request) bool {
 	session, _ := ls.store.Get(r, ls.sessionName)
-	// Check if user is authenticated
+	token := session.Values["token"].(string)
+	_, err := ls.tkn_svc.VerifyNakAuthAccessToken(token)
+	if err != nil {
+		return false
+	}
 	if auth, ok := session.Values["authenticated"].(bool); !ok || !auth {
 		return false
 	}
 	return true
 }
 
-func (ls *LoginService) SaveSession(w http.ResponseWriter, r *http.Request) error {
+func (ls *LoginService) SaveSession(w http.ResponseWriter, r *http.Request, token AccessToken) error {
 	session, _ := ls.store.Get(r, ls.sessionName)
 	session.Values["authenticated"] = true
+	session.Values["token"] = token.AccessToken
+	session.Options.MaxAge = int(token.ExpiresIn)
 	return session.Save(r, w)
-}
-
-// TODO move to Token Service
-func createToken(username string) (AccessToken, error) {
-	// Set the expiration time for the token
-	expirationTime := time.Now().Add(24 * time.Hour)
-
-	// Create the JWT claims, which includes the user ID and expiration time
-	claims := &jwt.StandardClaims{
-		ExpiresAt: expirationTime.Unix(),
-		Subject:   username,
-	}
-
-	// Create the JWT token with the claims and the secret key
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	secretKey := []byte("my_secret_key")
-	signedToken, err := token.SignedString(secretKey)
-	if err != nil {
-		return AccessToken{}, err
-	}
-
-	return AccessToken{
-		AccessToken: signedToken,
-		ExpiresIn:   claims.ExpiresAt - time.Now().Unix(),
-		TokenType:   "Bearer",
-	}, nil
 }

@@ -83,7 +83,7 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 				return
 			}
 
-			accessToken, err := l.token_svc.CreateAccessToken(accessBody.ClientId, accessBody.ClientSecret)
+			accessToken, err := l.token_svc.CreateAccessToken(accessBody.ClientId, accessBody.ClientSecret, "service")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return

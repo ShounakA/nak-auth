@@ -12,14 +12,11 @@
   <body class="flex flex-col bg-black h-screen w-screen text-white">
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div class="border-white border-2 w-80 rounded-2xl m-auto p-2">
-        All Registered Clients
+      <div class="py-5 px-5 text-3xl">
+        Your Clients
+      </div>
         <div>
-          <form class="bg-black" hx-post="/api/clients" hx-target="#client-list" >
-            <input class="bg-black" type="text" name="name" placeholder="name" />
-            <input class="bg-black" type="text" name="grant_type" placeholder="grant_type" /> 
-            <input class="bg-black" type="text" name="redirect_uri" placeholder="redirect_uri" />
-            <input class="bg-black" type="submit" value="Add Client" />
-          </form>
+          {{template "clientAddForm" .}}
         </div>
         <div id="client-list">
           {{range .Clients}}

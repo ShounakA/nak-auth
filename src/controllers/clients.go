@@ -6,6 +6,7 @@ import (
 	srv "nak-auth/services"
 	"nak-auth/templates"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -53,6 +54,15 @@ func (c *ClientController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			usrBody.Scopes = r.Form["scope"]
 		} else {
 			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+
+		if strings.TrimSpace(usrBody.Name) == "" {
+			http.Error(w, "Name is required.", http.StatusBadRequest)
+			return
+		}
+		if strings.TrimSpace(usrBody.GrantType) == "" {
+			http.Error(w, "Grant Type is required.", http.StatusBadRequest)
 			return
 		}
 

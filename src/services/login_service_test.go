@@ -10,7 +10,7 @@ import (
 func TestAuthenticateUser_Success(t *testing.T) {
 	db := setupDB()
 
-	service := LoginService{db: db}
+	service := LoginService{db: db, tkn_svc: &MockTokenService{tokenSigningKey: "Secret", nakAuthClientId: "Test", nakAuthSecret: "Secret"}}
 
 	h := sha256.New()
 	h.Write([]byte("Secret"))

@@ -2,6 +2,7 @@ package services
 
 import (
 	"nak-auth/models"
+	"os"
 
 	"gorm.io/gorm"
 )
@@ -15,17 +16,22 @@ type IClientService interface {
 
 type ClientService struct {
 	db        *gorm.DB
+	clientId  string
 	token_svc ITokenService
 }
 
+// Create a new client service. This service is responsible for managing clients.
 func NewClientService(db *gorm.DB, tkn_svc ITokenService) *ClientService {
-	return &ClientService{db: db, token_svc: tkn_svc}
+	name := os.Getenv("NAK_AUTH_CLIENT_ID")
+	secret := os.Getenv("NAK_AUTH_CLIENT_SECRET")
+	db.Create(&models.Client{Name: name, Secret: secret, GrantType: "client_credentials", RedirectURI: "http://localhost:8080", Scopes: []models.Scope{{Name: "internal"}}})
+	return &ClientService{db: db, token_svc: tkn_svc, clientId: name}
 }
 
 func (cs *ClientService) GetAll() ([]models.Client, error) {
 	var clients []models.Client
 	var dbError error = nil
-	result := cs.db.Model(&models.Client{}).Preload("Scopes").Find(&clients)
+	result := cs.db.Model(&models.Client{}).Preload("Scopes").Where("name != ?", cs.clientId).Find(&clients)
 	if result.Error != nil {
 		dbError = result.Error
 	}
@@ -47,7 +53,6 @@ func (cs *ClientService) Create(newClient models.ClientJson) error {
 	var dbErr error = nil
 
 	hashSecret := cs.token_svc.GenerateSecret(newClient.Name)
-
 	var scopes = []models.Scope{}
 	for i := 0; i < len(newClient.Scopes); i++ {
 		scope := models.Scope{
