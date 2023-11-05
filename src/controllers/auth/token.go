@@ -1,11 +1,11 @@
 package auth
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"nak-auth/services"
 	"net/http"
+	"strings"
 )
 
 type AccessController struct {
@@ -16,8 +16,6 @@ type AccessController struct {
 
 type AccessBody struct {
 	GrantType         string `json:"grant_type"`
-	ClientId          string `json:"client_id"`
-	ClientSecret      string `json:"client_secret"`
 	AuthorizationCode string `json:"authorization_code",omitempty`
 	CodeVerifier      string `json:"code_verifier",omitempty`
 	RedirectUri       string `json:"redirect_uri",omitempty`
@@ -36,21 +34,42 @@ func (*AccessController) Path() string {
 func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
-		var accessBody AccessBody
-		err := json.NewDecoder(r.Body).Decode(&accessBody)
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		clientId, clientSecret, err := parseClientCredentials(auth)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		err = r.ParseForm()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		accessBody := AccessBody{
+			GrantType:         r.Form.Get("grant_type"),
+			AuthorizationCode: r.Form.Get("authorization_code"),
+			RedirectUri:       r.Form.Get("redirect_uri"),
+			RefreshToken:      r.Form.Get("refresh_token"),
+			CodeVerifier:      r.Form.Get("code_verifier"),
+			// TODO Scope
+		}
+
 		switch accessBody.GrantType {
 		case "authorization_code":
-			user, dberr := l.user_svc.VerifyAuthorizationCode(accessBody.AuthorizationCode, accessBody.CodeVerifier, accessBody.ClientId)
+			user, dberr := l.user_svc.VerifyAuthorizationCode(accessBody.AuthorizationCode, accessBody.CodeVerifier, clientId)
 			if dberr != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			accessToken, err := l.token_svc.CreateAccessTokenWithAuthorization(accessBody.ClientId, accessBody.ClientSecret, user.Name, accessBody.AuthorizationCode)
+			accessToken, err := l.token_svc.CreateAccessTokenWithAuthorization(clientId, clientSecret, user.Name, accessBody.AuthorizationCode)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -58,7 +77,7 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			json.NewEncoder(w).Encode(accessToken)
 			break
 		case "refresh_token":
-			token, err := l.token_svc.CreateAccessTokenFromRefreshToken(accessBody.ClientId, accessBody.ClientSecret, accessBody.RefreshToken)
+			token, err := l.token_svc.CreateAccessTokenFromRefreshToken(clientId, clientSecret, accessBody.RefreshToken)
 			if err != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -66,7 +85,7 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			json.NewEncoder(w).Encode(token)
 			break
 		case "client_credentials":
-			client, err := l.client_svc.GetByID(accessBody.ClientId)
+			client, err := l.client_svc.GetByID(clientId)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -75,15 +94,12 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			h := sha256.New()
-			h.Write([]byte(accessBody.ClientSecret))
-			hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-			if client.Secret != hashSecret {
+			if client.Secret != clientSecret {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 
-			accessToken, err := l.token_svc.CreateAccessToken(accessBody.ClientId, accessBody.ClientSecret, "service")
+			accessToken, err := l.token_svc.CreateAccessToken(clientId, clientSecret, "service")
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -94,4 +110,14 @@ func (l *AccessController) WriteResponse(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		}
 	}
+}
+
+func parseClientCredentials(authHeader string) (string, string, error) {
+	// Decode the username and password from the Authorization header
+	decoded, err := base64.StdEncoding.DecodeString(authHeader[len("Basic "):])
+	if err != nil {
+		return "", "", err
+	}
+	credentials := strings.Split(string(decoded), ":")
+	return credentials[0], credentials[1], nil
 }
