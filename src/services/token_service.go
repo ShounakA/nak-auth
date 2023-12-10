@@ -17,6 +17,7 @@ type AccessToken struct {
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int64  `json:"expires_in"` // in seconds
 	RefreshToken string `json:"refresh_token,omitempty"`
+	IdToken      string `json:"id_token,omitempty"`
 }
 
 type ITokenService interface {
@@ -24,8 +25,10 @@ type ITokenService interface {
 	CreateAccessToken(clientId, clientSecret, username string) (AccessToken, error)
 	CreateAccessTokenWithAuthorization(clientId, clientSecret, userName, authorization_code string) (AccessToken, error)
 	CreateAccessTokenFromRefreshToken(clientId, clientSecret, refreshToken string) (AccessToken, error)
+	CreateIdToken(clientId, clientSecret, username string) (string, error)
 	GenerateSecret(clientId string) string
 	VerifyNakAuthAccessToken(token string) (jwt.Claims, error)
+	VerifyNakAuthIdToken(id_token, clientId, clientSecret string) (jwt.Claims, error)
 }
 
 type TokenService struct {
@@ -90,11 +93,16 @@ func (s *TokenService) CreateAccessTokenWithAuthorization(clientId, clientSecret
 	if err != nil {
 		return AccessToken{}, err
 	}
+	idToken, err := s.CreateIdToken(clientId, clientSecret, userName)
+	if err != nil {
+		return AccessToken{}, err
+	}
 	return AccessToken{
 		AccessToken:  tokenString,
 		TokenType:    "Bearer",
 		ExpiresIn:    expireAt - time.Now().Unix(),
 		RefreshToken: refreshToken,
+		IdToken:      idToken,
 	}, nil
 }
 
@@ -161,6 +169,29 @@ func (s *TokenService) GenerateSecret(clientId string) string {
 	return hashSecret
 }
 
+func (s *TokenService) CreateIdToken(clientId, clientSecret, username string) (string, error) {
+	// Create a new JWT token
+	token := jwt.New(jwt.SigningMethodHS256)
+
+	// Set the claims for the token
+	claims := token.Claims.(jwt.MapClaims)
+	expireAt := time.Now().Add(time.Hour * 5).Unix()
+	claims["exp"] = expireAt
+	claims["iat"] = time.Now().Unix()
+	claims["client_id"] = clientId
+	claims["sub"] = username
+	claims["aud"] = clientId
+	claims["typ"] = "id_token"
+
+	// Sign the token with the secret key
+	tokenString, err := token.SignedString([]byte(clientSecret))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
 // These should only be used for nak-auth to nak-auth communication
 
 func (s *TokenService) GenerateNakAuthAccessToken(username string) (AccessToken, error) {
@@ -184,4 +215,29 @@ func (s *TokenService) VerifyNakAuthAccessToken(access_token string) (jwt.Claims
 	}
 
 	return nil, fmt.Errorf("invalid access token")
+}
+
+func (s *TokenService) VerifyNakAuthIdToken(id_token, clientId, clientSecret string) (jwt.Claims, error) {
+	token, err := jwt.Parse(id_token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			fmt.Println(token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(clientSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		if claims["client_id"] != clientId {
+			return nil, errors.New("invalid client id")
+		}
+		if claims["typ"] != "id_token" {
+			return nil, errors.New("invalid token type")
+		}
+		return claims, nil
+	}
+	return nil, fmt.Errorf("invalid id token")
 }

@@ -33,18 +33,32 @@ func (l *LoginController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		// Decode the username and password from the Authorization header
-		decoded, err := base64.StdEncoding.DecodeString(auth[len("Basic "):])
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
+		succ := false
+		userId := -1
+		token := services.AccessToken{}
+		err := error(nil)
+		if strings.HasPrefix(auth, "Basic ") {
+			// Decode the username and password from the Authorization header
+			decoded, err := base64.StdEncoding.DecodeString(auth[len("Basic "):])
+			if err != nil {
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+			credentials := strings.Split(string(decoded), ":")
+			username := credentials[0]
+			password := credentials[1]
+
+			// Authenticate the user with the username and password
+			succ, userId, token, err = l.login_svc.AuthenticateUser(username, password)
+		} else if strings.HasPrefix(auth, "Bearer ") {
+			// TODO Need to verify the client_id and client_secret
+			// As well as the 'aud' and 'type' claims
+			succ, userId, token, err = l.login_svc.AuthenticateUserWithIdToken(auth[len("Bearer "):])
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		credentials := strings.Split(string(decoded), ":")
-		username := credentials[0]
-		password := credentials[1]
-
-		// Authenticate the user with the username and password
-		succ, userId, token, err := l.login_svc.AuthenticateUser(username, password)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/sessions"
 	"gorm.io/gorm"
 )
@@ -22,6 +23,7 @@ type LoginService struct {
 
 type ILoginService interface {
 	AuthenticateUser(username string, secret string) (bool, int, AccessToken, error)
+	AuthenticateUserWithIdToken(accessToken string) (bool, int, AccessToken, error)
 	ClientIsAuthenticated(r *http.Request) bool
 	SaveSession(w http.ResponseWriter, r *http.Request, token AccessToken) error
 }
@@ -40,7 +42,7 @@ func NewLoginService(db *gorm.DB, tkn_svc ITokenService) *LoginService {
 	return &LoginService{db: db, sessionName: sessionName, store: store, tkn_svc: tkn_svc, nakAuthClientId: nakAuthClientId, nakAuthSecret: nakAuthSecret}
 }
 
-func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, int, AccessToken, error) {
+func (ls *LoginService) AuthenticateUser(username, secret string) (bool, int, AccessToken, error) {
 	var user models.User
 	var token AccessToken
 	var userId int = -1
@@ -55,6 +57,28 @@ func (ls *LoginService) AuthenticateUser(username string, secret string) (bool, 
 	} else {
 		success = true
 		token, err = ls.tkn_svc.CreateAccessToken(ls.nakAuthClientId, ls.nakAuthSecret, user.Name)
+		userId = user.ID
+	}
+	return success, userId, token, err
+}
+
+func (ls *LoginService) AuthenticateUserWithIdToken(accessToken string) (bool, int, AccessToken, error) {
+	var user models.User
+	var token AccessToken
+	var userId int = -1
+	var err error
+	success := false
+
+	claims, err := ls.tkn_svc.VerifyNakAuthIdToken(accessToken, ls.nakAuthClientId, ls.nakAuthSecret)
+	if err != nil {
+		return success, userId, token, err
+	}
+	username := claims.(jwt.MapClaims)["sub"].(string)
+	result := ls.db.Model(&models.User{}).First(&user, models.User{Name: username})
+	if result.Error != nil {
+		success = false
+	} else {
+		success = true
 		userId = user.ID
 	}
 	return success, userId, token, err

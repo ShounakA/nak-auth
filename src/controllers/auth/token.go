@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"nak-auth/models"
 	"nak-auth/services"
 	"net/http"
 	"strings"
@@ -20,7 +21,8 @@ type AccessBody struct {
 	CodeVerifier      string `json:"code_verifier",omitempty`
 	RedirectUri       string `json:"redirect_uri",omitempty`
 	RefreshToken      string `json:"refresh_token",omitempty`
-	//Scope			 string `json:"scope",omitempty`
+	Scope             string `json:"scope",omitempty`
+	Scopes            []models.Scope
 }
 
 func NewTokenController(client_service services.IClientService, token_service services.ITokenService) *TokenController {
@@ -58,14 +60,18 @@ func (l *TokenController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
+		// Parse the request body
 		accessBody := AccessBody{
 			GrantType:         r.Form.Get("grant_type"),
 			AuthorizationCode: r.Form.Get("authorization_code"),
 			RedirectUri:       r.Form.Get("redirect_uri"),
 			RefreshToken:      r.Form.Get("refresh_token"),
 			CodeVerifier:      r.Form.Get("code_verifier"),
-			// TODO Scope
+			Scope:             r.Form.Get("scope"),
 		}
+		accessBody.Scopes = models.ParseScopes(accessBody.Scope)
+
+		// Validate the client id requested exists
 		client, err := l.client_svc.GetByID(clientId)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -84,7 +90,13 @@ func (l *TokenController) WriteResponse(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		// TODO Validate Scope
+		// Validate the scopes requested are allowed for the client
+		for _, scope := range accessBody.Scopes {
+			if !containsScope(client.Scopes, scope) {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
 
 		switch accessBody.GrantType {
 		case "authorization_code":
@@ -134,4 +146,13 @@ func parseClientCredentials(authHeader string) (string, string, error) {
 	}
 	credentials := strings.Split(string(decoded), ":")
 	return credentials[0], credentials[1], nil
+}
+
+func containsScope(scopes []models.Scope, scope models.Scope) bool {
+	for _, s := range scopes {
+		if s.Name == scope.Name {
+			return true
+		}
+	}
+	return false
 }

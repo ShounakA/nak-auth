@@ -39,6 +39,14 @@ func (s *MockTokenService) VerifyNakAuthAccessToken(token string) (jwt.Claims, e
 	return nil, nil
 }
 
+func (s *MockTokenService) VerifyNakAuthIdToken(id_token, clientId, clientSecret string) (jwt.Claims, error) {
+	return nil, nil
+}
+
+func (s *MockTokenService) CreateIdToken(clientId, clientSecret, username string) (string, error) {
+	return "", nil
+}
+
 func setupDB() *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

@@ -1,5 +1,7 @@
 package models
 
+import "strings"
+
 type Scope struct {
 	Name string `json:"name" sql:"name" gorm:"primaryKey"`
 }
@@ -20,4 +22,12 @@ func (scope Scope) Equals(other interface{}) bool {
 		return false
 	}
 	return scope.Name == other.(Scope).Name
+}
+
+func ParseScopes(scope string) []Scope {
+	scopes := []Scope{}
+	for _, s := range strings.Split(scope, " ") {
+		scopes = append(scopes, Scope{Name: s})
+	}
+	return scopes
 }
