@@ -3,6 +3,7 @@ package services
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"nak-auth/db"
 	"nak-auth/models"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 type LoginService struct {
 	db              *gorm.DB
+	fact            db.ILibSqlClientFactory
 	tkn_svc         ITokenService
 	nakAuthClientId string
 	nakAuthSecret   string
@@ -32,14 +34,14 @@ type ILoginService interface {
 // It is also responsible for verifying that a client is authenticated.
 // param db: The database connection
 // param tkn_svc: The token service
-func NewLoginService(db *gorm.DB, tkn_svc ITokenService) *LoginService {
+func NewLoginService(fact db.ILibSqlClientFactory, tkn_svc ITokenService) *LoginService {
 	sessionKey := os.Getenv("TOKEN_SIGNING_KEY")
 	nakAuthClientId := os.Getenv("NAK_AUTH_CLIENT_ID")
 	nakAuthSecret := os.Getenv("NAK_AUTH_CLIENT_SECRET")
 
 	sessionName := "nak-auth-session"
 	store := sessions.NewCookieStore([]byte(sessionKey))
-	return &LoginService{db: db, sessionName: sessionName, store: store, tkn_svc: tkn_svc, nakAuthClientId: nakAuthClientId, nakAuthSecret: nakAuthSecret}
+	return &LoginService{fact: fact, sessionName: sessionName, store: store, tkn_svc: tkn_svc, nakAuthClientId: nakAuthClientId, nakAuthSecret: nakAuthSecret}
 }
 
 func (ls *LoginService) AuthenticateUser(username, secret string) (bool, int, AccessToken, error) {
@@ -47,11 +49,16 @@ func (ls *LoginService) AuthenticateUser(username, secret string) (bool, int, Ac
 	var token AccessToken
 	var userId int = -1
 	var err error
+
+	dbConn, err := ls.fact.CreateClient()
+	if err != nil {
+		return false, -1, AccessToken{}, err
+	}
 	success := false
 	h := sha256.New()
 	h.Write([]byte(secret))
 	hashSecret := base64.URLEncoding.EncodeToString(h.Sum(nil))
-	result := ls.db.Model(&models.User{}).First(&user, models.User{Name: username, Secret: hashSecret})
+	result := dbConn.Model(&models.User{}).First(&user, models.User{Name: username, Secret: hashSecret})
 	if result.Error != nil {
 		success = false
 	} else {
@@ -86,7 +93,13 @@ func (ls *LoginService) AuthenticateUserWithIdToken(accessToken string) (bool, i
 
 func (ls *LoginService) ClientIsAuthenticated(r *http.Request) bool {
 	session, _ := ls.store.Get(r, ls.sessionName)
-	token := session.Values["token"].(string)
+	tokenValue := session.Values["token"]
+	var token string
+	if tokenValue != nil {
+		token = tokenValue.(string)
+	} else {
+		token = ""
+	}
 	_, err := ls.tkn_svc.VerifyNakAuthAccessToken(token)
 	if err != nil {
 		return false

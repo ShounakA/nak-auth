@@ -41,3 +41,17 @@ func NewLibSqlClient(lc fx.Lifecycle) (*gorm.DB, error) {
 	})
 	return db, err
 }
+
+type LibSqlClientFactory struct{}
+
+type ILibSqlClientFactory interface {
+	CreateClient() (*gorm.DB, error)
+}
+
+func (_ *LibSqlClientFactory) CreateClient() (*gorm.DB, error) {
+	return gorm.Open(sqlite.Open("main.db"), &gorm.Config{})
+}
+
+func NewLibSqlClientFactory() *LibSqlClientFactory {
+	return &LibSqlClientFactory{}
+}

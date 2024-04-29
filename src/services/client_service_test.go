@@ -15,6 +15,14 @@ type MockTokenService struct {
 	nakAuthSecret   string
 }
 
+type MockLibSqlFactory struct {
+	db *gorm.DB
+}
+
+func (l *MockLibSqlFactory) CreateClient() (*gorm.DB, error) {
+	return l.db, nil
+}
+
 func (s *MockTokenService) GenerateSecret(clientId string) string {
 	return "Secret"
 }
@@ -61,7 +69,7 @@ func setupDB() *gorm.DB {
 
 func TestGetAll_Success(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}}
 
 	// Setup test data
 	db.Create(&models.Client{Name: "Test", Secret: "Secret", GrantType: "GrantType", RedirectURI: "RedirectURI"})
@@ -82,7 +90,7 @@ func TestGetAll_Success(t *testing.T) {
 
 func TestGetAll_Empty(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}}
 
 	clients, err := service.GetAll()
 	if err != nil {
@@ -96,7 +104,7 @@ func TestGetAll_Empty(t *testing.T) {
 
 func TestGetbyID_Success(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}}
 	scopes := []models.Scope{}
 	scopes = append(scopes, models.Scope{Name: "testScope1"})
 	scopes = append(scopes, models.Scope{Name: "testScope2"})
@@ -120,7 +128,7 @@ func TestGetbyID_Success(t *testing.T) {
 
 func TestGetbyID_NotFound(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}}
 
 	_, err := service.GetByID("Test")
 	if err == nil {
@@ -130,7 +138,7 @@ func TestGetbyID_NotFound(t *testing.T) {
 
 func TestCreate_Success(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db, token_svc: &MockTokenService{tokenSigningKey: "Secret", nakAuthSecret: "Secret", nakAuthClientId: "Secret"}}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}, token_svc: &MockTokenService{tokenSigningKey: "Secret", nakAuthSecret: "Secret", nakAuthClientId: "Secret"}}
 
 	scopes := []models.Scope{}
 	scopes = append(scopes, models.Scope{Name: "testScope1"})
@@ -160,7 +168,7 @@ func TestCreate_Success(t *testing.T) {
 
 func TestDelete_Success(t *testing.T) {
 	db := setupDB()
-	service := ClientService{db: db}
+	service := ClientService{fact: &MockLibSqlFactory{db: db}}
 	scopes := []models.Scope{}
 	scopes = append(scopes, models.Scope{Name: "testScope1"})
 	scopes = append(scopes, models.Scope{Name: "testScope2"})

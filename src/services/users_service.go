@@ -5,9 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"nak-auth/db"
 	"nak-auth/models"
-
-	"gorm.io/gorm"
 )
 
 type IUserService interface {
@@ -21,18 +20,22 @@ type IUserService interface {
 }
 
 type UserService struct {
-	db *gorm.DB
+	fact db.ILibSqlClientFactory
 }
 
 // Create a new user service. This service is responsible for managing users.
-func NewUserService(db *gorm.DB) *UserService {
-	return &UserService{db: db}
+func NewUserService(fact db.ILibSqlClientFactory) *UserService {
+	return &UserService{fact: fact}
 }
 
 func (cs *UserService) GetAll() ([]models.User, error) {
 	var users []models.User
 	var dbError error = nil
-	result := cs.db.Model(&models.User{}).Find(&users)
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return users, err
+	}
+	result := dbConn.Model(&models.User{}).Find(&users)
 	if result.Error != nil {
 		dbError = result.Error
 	}
@@ -42,7 +45,11 @@ func (cs *UserService) GetAll() ([]models.User, error) {
 func (cs *UserService) GetByID(id int) (models.User, error) {
 	var user models.User
 	var dbErr error = nil
-	result := cs.db.Model(&models.User{}).First(&user, models.User{ID: id})
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return user, err
+	}
+	result := dbConn.Model(&models.User{}).First(&user, models.User{ID: id})
 	if result.Error != nil {
 		dbErr = result.Error
 	}
@@ -52,6 +59,11 @@ func (cs *UserService) GetByID(id int) (models.User, error) {
 func (cs *UserService) Create(newUser models.User) error {
 
 	var dbErr error = nil
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return err
+	}
+
 	// Hash the password
 	h := sha256.New()
 	h.Write([]byte(newUser.Secret))
@@ -62,7 +74,7 @@ func (cs *UserService) Create(newUser models.User) error {
 		Secret: hashSecret,
 	}
 	// Write to the pscale
-	result := cs.db.Create(&newUserRow)
+	result := dbConn.Create(&newUserRow)
 	if result.Error != nil {
 		dbErr = result.Error
 	}
@@ -72,11 +84,16 @@ func (cs *UserService) Create(newUser models.User) error {
 func (cs *UserService) AddAuthorizedClient(id int, cliend_id string) error {
 	var client models.Client
 	var dbErr error = nil
-	result := cs.db.Model(&models.Client{}).Preload("Scopes").First(&client, models.Client{Name: cliend_id})
+
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return err
+	}
+	result := dbConn.Model(&models.Client{}).Preload("Scopes").First(&client, models.Client{Name: cliend_id})
 	if result.Error != nil {
 		dbErr = result.Error
 	}
-	err := cs.db.Model(&models.User{}).Where("id = ?", true).Association("Clients").Append(&client)
+	err = dbConn.Model(&models.User{}).Where("id = ?", true).Association("Clients").Append(&client)
 	if err != nil {
 		dbErr = err
 	}
@@ -86,13 +103,17 @@ func (cs *UserService) AddAuthorizedClient(id int, cliend_id string) error {
 func (cs *UserService) AddAuthorizationCode(id int, challenge string) (string, error) {
 	var dbErr error = nil
 	var code string = ""
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return code, err
+	}
 	buf := make([]byte, 64)
 	_, dbErr = rand.Read(buf)
 	if dbErr != nil {
 		return code, dbErr
 	}
 	auth_code := base64.StdEncoding.EncodeToString(buf)
-	dbErr = cs.db.Model(&models.User{}).Where("id = ?", true).Association("Codes").Append(models.Code{Secret: auth_code, Challenge: challenge})
+	dbErr = dbConn.Model(&models.User{}).Where("id = ?", true).Association("Codes").Append(models.Code{Secret: auth_code, Challenge: challenge})
 	if dbErr != nil {
 		return code, dbErr
 	}
@@ -104,7 +125,11 @@ func (cs *UserService) VerifyAuthorizationCode(auth_code, code_verifier, clientI
 	var user models.User
 	hasAuthorization := false
 	var dbErr error = nil
-	result := cs.db.Model(&models.User{}).Preload("Codes").Preload("Clients").Where("codes.secret = ?", auth_code).Where("clients.name = ?", clientId).First(&user)
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return user, err
+	}
+	result := dbConn.Model(&models.User{}).Preload("Codes").Preload("Clients").Where("codes.secret = ?", auth_code).Where("clients.name = ?", clientId).First(&user)
 	if result.Error != nil {
 		dbErr = result.Error
 		return user, dbErr
@@ -129,7 +154,11 @@ func (cs *UserService) VerifyAuthorizationCode(auth_code, code_verifier, clientI
 func (cs *UserService) Delete(id int) error {
 	var user models.User
 	var dbErr error = nil
-	result := cs.db.Delete(&user, models.User{ID: id})
+	dbConn, err := cs.fact.CreateClient()
+	if err != nil {
+		return err
+	}
+	result := dbConn.Delete(&user, models.User{ID: id})
 	if result.Error != nil {
 		dbErr = result.Error
 	}
