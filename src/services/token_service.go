@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"gorm.io/gorm"
 )
 
 type AccessToken struct {
@@ -38,11 +37,11 @@ type TokenService struct {
 }
 
 // Create a new token service. This service is responsible for creating, verifying, and refreshing tokens.
-func NewTokenService(db *gorm.DB) *TokenService {
+func NewTokenService() *TokenService {
 	signKey := os.Getenv("TOKEN_SIGNING_KEY")
 	nakAuthSecret := os.Getenv("NAK_AUTH_CLIENT_SECRET")
 	nakAuthClientId := os.Getenv("NAK_AUTH_CLIENT_ID")
-	//TODO sign by client secret not the key
+
 	return &TokenService{tokenSigningKey: signKey, nakAuthSecret: nakAuthSecret, nakAuthClientId: nakAuthClientId}
 }
 
